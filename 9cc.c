@@ -5,6 +5,26 @@
 #include <stdbool.h>
 #include <string.h>
 
+typedef enum {
+	NK_ADD,
+	NK_SUB,
+	NK_MUL,
+	NK_DIV,
+	NK_NUM,
+} NodeKind;
+
+typedef struct Node Node;
+
+struct Node {
+	NodeKind kind;
+	Node *lhs;
+	Node *rhs;
+	int val;
+};
+
+Node* expr();
+Node* mul();
+Node* primary();
 
 typedef enum {
 	TK_RESERVED,
@@ -46,7 +66,7 @@ bool consume(char op) {
 
 void expect(char op) {
 	if (token->kind != TK_RESERVED || token->str[0] != op) 
-		error_at(token->str, "expect +/-");
+		error_at(token->str, "expect %c", op);
 	token = token->next;
 }
 
@@ -79,7 +99,7 @@ Token* tokenize(char* p) {
 			p++;
 			continue;
 		}
-		if (*p == '+' || *p == '-') {
+		if (strchr("+-*/()", *p)) {
 			cur = new_token(TK_RESERVED , cur, p);
 			p++;
 			continue;
@@ -95,6 +115,89 @@ Token* tokenize(char* p) {
 	return head.next;
 }
 
+Node* new_node(NodeKind kind, Node* lhs, Node* rhs) {
+	Node* node = calloc(1, sizeof(Node));
+	node->kind = kind;
+	node->lhs = lhs;
+	node->rhs = rhs;
+	return node;
+}
+
+Node* new_node_number(NodeKind kind, int val) {
+	Node* node = calloc(1, sizeof(Node));
+	node->kind = kind;
+	node->val = val;
+	return node;
+}
+
+
+Node* expr() {
+	Node* node = mul();
+	for(;;) {
+		if (consume('+')) {
+			node = new_node(NK_ADD, node, mul());
+		}
+		else if(consume('-')) {
+			node = new_node(NK_SUB, node, mul());
+		}
+		else return node;
+	}
+}
+
+Node* mul() {
+	Node* node = primary();
+	for(;;) {
+		if (consume('*')) {
+			node = new_node(NK_MUL, node, primary());
+		}
+		else if(consume('/')) {
+			node = new_node(NK_DIV, node, primary());
+		}
+		else return node;
+	}
+}
+
+Node* primary() {
+	
+	if(consume('(')) {
+		Node* node = expr();
+		expect(')');
+		return node;
+	}
+
+	return new_node_number(NK_NUM, expect_number());
+
+}
+
+void gen(Node* node) {
+	if(node->kind == NK_NUM) {
+		printf("	push %d\n", node->val);
+		return;
+	}
+	
+	gen(node->lhs);
+	gen(node->rhs);
+
+	printf("	pop rdi\n");
+	printf("	pop rax\n");
+	switch(node->kind) {
+	    case NK_ADD:
+			printf("	add rax, rdi\n");
+			break;
+		case NK_SUB:
+			printf("	sub rax, rdi\n");
+			break;
+		case NK_MUL:
+			printf("	imul rax, rdi\n");
+			break;
+		case NK_DIV:
+			printf("	cqo\n");
+			printf("	idiv rdi\n");
+			break;
+		}
+	printf("	push rax\n");
+}
+
 int main(int argc, char **argv)
 {
 	if (argc != 2) {
@@ -103,18 +206,15 @@ int main(int argc, char **argv)
 	}
 	user_input = argv[1];
 	token = tokenize(argv[1]);
+	Node* node = expr();
+
 	printf(".intel_syntax noprefix\n");
 	printf(".globl main\n");
 	printf("main:\n");
-	printf("	mov rax, %d\n", expect_number());
-	while(!at_eof()) {
-		if(consume('+')) {
-			printf("	add rax, %d\n", expect_number());
-			continue;
-		}
-		expect('-');
-		printf("	sub rax, %d\n", expect_number());
-	}
+	
+	gen(node);
+
+	printf("	pop rax\n");
 	printf("    ret\n");
 
 	return 0;

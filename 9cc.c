@@ -25,6 +25,7 @@ struct Node {
 Node* expr();
 Node* mul();
 Node* primary();
+Node* unary();
 
 typedef enum {
 	TK_RESERVED,
@@ -145,16 +146,27 @@ Node* expr() {
 }
 
 Node* mul() {
-	Node* node = primary();
+	Node* node = unary();
 	for(;;) {
 		if (consume('*')) {
-			node = new_node(NK_MUL, node, primary());
+			node = new_node(NK_MUL, node, unary());
 		}
 		else if(consume('/')) {
-			node = new_node(NK_DIV, node, primary());
+			node = new_node(NK_DIV, node, unary());
 		}
 		else return node;
 	}
+}
+
+Node* unary() {
+	if(consume('+')) {
+		return primary();
+	}
+	if(consume('-')) {
+		return new_node(NK_SUB, new_node_number(NK_NUM, 0), primary());
+	}
+	
+	return	primary();
 }
 
 Node* primary() {

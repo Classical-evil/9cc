@@ -11,6 +11,10 @@ typedef enum {
 	NK_MUL,
 	NK_DIV,
 	NK_NUM,
+	NK_EQ,
+	NK_NEQ,
+	NK_L,
+	NK_LE,
 } NodeKind;
 
 typedef struct Node Node;
@@ -23,6 +27,8 @@ struct Node {
 };
 
 Node* expr();
+Node* relational();
+Node* add();
 Node* mul();
 Node* primary();
 Node* unary();
@@ -40,6 +46,7 @@ struct Token{
 	int val;
 	char *str;
 	Token *next;
+	int len;
 };
 
 Token *token;
@@ -58,16 +65,20 @@ void error_at(char *loc, char *fmt, ...) {
 	exit(1);
 }
 
-bool consume(char op) {
-	if (token->kind != TK_RESERVED || token->str[0] != op) 
+bool consume(char *op) {
+	if (token->kind != TK_RESERVED || 
+		token->len != strlen(op) ||
+		memcmp(token->str, op, token->len)) 
 		return false;
 	token = token->next;
 	return true;
 }
 
-void expect(char op) {
-	if (token->kind != TK_RESERVED || token->str[0] != op) 
-		error_at(token->str, "expect %c", op);
+void expect(char* op) {
+	if (token->kind != TK_RESERVED || 
+		token->len != strlen(op) ||
+		memcmp(token->str, op, token->len)) 
+		error_at(token->str, "expect %s", op);
 	token = token->next;
 }
 
@@ -83,10 +94,11 @@ bool at_eof() {
 	return token->kind == TK_EOF;
 }
 
-Token* new_token(TokenKind kind, Token *cur, char* str) {
+Token* new_token(TokenKind kind, Token *cur, char* str, int len) {
 	Token* tok = calloc(1, sizeof(Token));
 	tok->kind = kind;
 	tok->str = str;
+	tok->len = len;
 	cur->next = tok;
 	return tok;
 }
@@ -101,18 +113,28 @@ Token* tokenize(char* p) {
 			continue;
 		}
 		if (strchr("+-*/()", *p)) {
-			cur = new_token(TK_RESERVED , cur, p);
+			cur = new_token(TK_RESERVED , cur, p, 1);
+			p++;
+			continue;
+		}
+		if (strchr("<>!=", *p)) {
+			if (p[1] == '=') {
+				cur = new_token(TK_RESERVED, cur, p, 2);
+				p += 2;
+				continue;
+			}
+			cur = new_token(TK_RESERVED, cur, p, 1);
 			p++;
 			continue;
 		}
 		if (isdigit(*p)) {
-			cur = new_token(TK_NUM, cur, p);
+			cur = new_token(TK_NUM, cur, p, 1);
 			cur->val = strtol(p, &p, 10);
 			continue;
 		}
 		error_at(token->str, "can't tokenize");
 	}
-	new_token(TK_EOF, cur, p);
+	new_token(TK_EOF, cur, p, 1);
 	return head.next;
 }
 
@@ -131,49 +153,86 @@ Node* new_node_number(NodeKind kind, int val) {
 	return node;
 }
 
-
+//expr = relational( "==" relational | "!=" relational)*
 Node* expr() {
+	Node *node = relational();
+	for(;;) {
+		if(consume("==")) {
+			node = new_node(NK_EQ, node, relational());
+		}
+		else if(consume("!=")) {
+			node = new_node(NK_NEQ, node, relational());
+		}
+		else return node;
+	}
+}
+
+//relational = add("<" add | "<=" add | ">" add | ">=" add)*
+Node *relational() {
+	Node* node = add();
+	for(;;) {
+		if(consume(">")) {
+			node = new_node(NK_L, add(), node);
+		}
+		else if(consume(">=")) {
+			node = new_node(NK_LE, add(), node);
+		}
+		else if(consume("<")) {
+			node = new_node(NK_L, node, add());
+		}
+		else if(consume("<=")) {
+			node = new_node(NK_LE, node, add());
+		}
+		else return node;
+	}
+}
+
+//expr = mul("+" mul | "-" mul)*
+Node* add() {
 	Node* node = mul();
 	for(;;) {
-		if (consume('+')) {
+		if (consume("+")) {
 			node = new_node(NK_ADD, node, mul());
 		}
-		else if(consume('-')) {
+		else if(consume("-")) {
 			node = new_node(NK_SUB, node, mul());
 		}
 		else return node;
 	}
 }
 
+//mul = unary("*" unary | "/" unary)* 
 Node* mul() {
 	Node* node = unary();
 	for(;;) {
-		if (consume('*')) {
+		if (consume("*")) {
 			node = new_node(NK_MUL, node, unary());
 		}
-		else if(consume('/')) {
+		else if(consume("/")) {
 			node = new_node(NK_DIV, node, unary());
 		}
 		else return node;
 	}
 }
 
+//unary = ("+" | "-")? primary
 Node* unary() {
-	if(consume('+')) {
+	if(consume("+")) {
 		return primary();
 	}
-	if(consume('-')) {
+	if(consume("-")) {
 		return new_node(NK_SUB, new_node_number(NK_NUM, 0), primary());
 	}
 	
 	return	primary();
 }
 
+//primary = num | "(" expr ")"
 Node* primary() {
 	
-	if(consume('(')) {
+	if(consume("(")) {
 		Node* node = expr();
-		expect(')');
+		expect(")");
 		return node;
 	}
 
@@ -206,7 +265,27 @@ void gen(Node* node) {
 			printf("	cqo\n");
 			printf("	idiv rdi\n");
 			break;
-		}
+		case NK_EQ: 
+			printf("	cmp rax, rdi\n");
+			printf("	sete al\n");
+			printf("	movzb rax, al\n");
+			break;
+		case NK_NEQ: 
+			printf("	cmp rax, rdi\n");
+			printf("	setne al\n");
+			printf("	movzb rax, al\n");
+			break;
+		case NK_L: 
+			printf("	cmp rax, rdi\n");
+			printf("	setl al\n");
+			printf("	movzb rax, al\n");
+			break;
+		case NK_LE: 
+			printf("	cmp rax, rdi\n");
+			printf("	setle al\n");
+			printf("	movzb rax, al\n");
+			break;
+	}
 	printf("	push rax\n");
 }
 

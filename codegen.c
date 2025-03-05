@@ -15,8 +15,32 @@ Node* new_node_number(NodeKind kind, int val) {
 	return node;
 }
 
-//expr = relational( "==" relational | "!=" relational)*
+//program = stmt*
+void program() {
+	int i = 0;
+	while(!at_eof()) {
+		code[i++] = stmt();
+	}
+}
+
+//stmt = expr;
+Node* stmt() {
+	Node* node = expr();
+	expect(";");
+	return node;
+}
+
+//exper = equality ( "=" expr )?
 Node* expr() {
+	Node* node = equality();
+	if(consume("=")) {
+		node = new_node(NK_ASSIGN, node, expr());
+	}
+	return node;
+}
+
+//expr = relational( "==" relational | "!=" relational)*
+Node* equality() {
 	Node *node = relational();
 	for(;;) {
 		if(consume("==")) {
@@ -83,13 +107,13 @@ Node* unary() {
 		return primary();
 	}
 	if(consume("-")) {
-		return new_node(NK_SUB, new_node_number(NK_NUM, 0), primary());
+		return new_node(NK_SUB, new_node_number(NK_NUM, 0), unary());
 	}
 	
 	return	primary();
 }
 
-//primary = num | "(" expr ")"
+//primary = num | ident | "(" expr ")"
 Node* primary() {
 	
 	if(consume("(")) {
@@ -97,8 +121,25 @@ Node* primary() {
 		expect(")");
 		return node;
 	}
+	
+	if(token->kind == TK_IDENT) {
+		Node* node = new_node_number(NK_LVAL, 0);
+		node->offset = (token->str[0] - 'a') * 8;
+		token = token->next;
+		return node;
+	}
 
 	return new_node_number(NK_NUM, expect_number());
+
+}
+
+void gen_lval(Node* node) {
+	if(node->kind != NK_LVAL) {
+		error_at("expected a left val %s", "wrong");
+	}
+	printf("	mov rax, rbp\n");
+	printf("	sub rax, %d\n", node->offset);
+	printf("	push rax\n");
 
 }
 
@@ -108,6 +149,28 @@ void gen(Node* node) {
 		return;
 	}
 	
+
+	switch(node->kind) {
+		case NK_NUM:
+			printf("	push %d\n", node->val);
+			return;
+		case NK_LVAL:
+			gen_lval(node);
+			printf("	pop rax\n");
+			printf("	mov rax, [rax]\n");
+			printf("	push rax\n");
+			return;
+		case NK_ASSIGN:
+			gen_lval(node->lhs);
+			gen(node->rhs);
+			printf("	pop rdi\n");
+			printf("	pop rax\n");
+			printf("	mov [rax], rdi\n");
+			printf("	push rdi\n");
+			return;
+	}
+
+
 	gen(node->lhs);
 	gen(node->rhs);
 

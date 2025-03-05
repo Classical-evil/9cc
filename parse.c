@@ -60,23 +60,32 @@ Token* tokenize(char* p) {
 			p++;
 			continue;
 		}
-		if (strchr("+-*/()", *p)) {
+		if (strchr("+-*/();", *p)) {
 			cur = new_token(TK_RESERVED , cur, p, 1);
+			p++;
+	//		printf("+-/;*p:%c\n", *p);
+			continue;
+		}
+		if (*p >= 'a' && *p <= 'z') {
+			cur = new_token(TK_IDENT, cur, p, 1);
+	//		printf("a-z*p;%c\n", *p);
 			p++;
 			continue;
 		}
-		if (strchr("<>!=", *p)) {
+ 		if (strchr("<>!=", *p)) {
 			if (p[1] == '=') {
 				cur = new_token(TK_RESERVED, cur, p, 2);
 				p += 2;
 				continue;
 			}
 			cur = new_token(TK_RESERVED, cur, p, 1);
+	//		printf("strchr*p:%c\n", *p);
 			p++;
 			continue;
 		}
 		if (isdigit(*p)) {
 			cur = new_token(TK_NUM, cur, p, 1);
+	//		printf("isdigit*p:%c\n", *p);
 			cur->val = strtol(p, &p, 10);
 			continue;
 		}

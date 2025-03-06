@@ -67,9 +67,15 @@ Token* tokenize(char* p) {
 			continue;
 		}
 		if (*p >= 'a' && *p <= 'z') {
-			cur = new_token(TK_IDENT, cur, p, 1);
+			int len = 0;
+			while(*p>='a' && *p<='z') {
+	//			printf("a-z*p;%c\n", p[len]);
+				len++;
+				p++;
+			}
+			cur = new_token(TK_IDENT, cur, p, 3);
 	//		printf("a-z*p;%c\n", *p);
-			p++;
+	//		p += len;
 			continue;
 		}
  		if (strchr("<>!=", *p)) {

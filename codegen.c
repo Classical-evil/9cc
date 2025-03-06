@@ -1,5 +1,14 @@
 #include "9cc.h"
 
+LVal* find_lval(Token* token) {
+	for(LVal* val = locals;val;val = val->next) {
+		if (val->len == token->len && !memcpy(val->name, token->str, token->len)) {
+			return val;
+		}
+	}
+	return NULL;
+}
+
 Node* new_node(NodeKind kind, Node* lhs, Node* rhs) {
 	Node* node = calloc(1, sizeof(Node));
 	node->kind = kind;
@@ -21,6 +30,7 @@ void program() {
 	while(!at_eof()) {
 		code[i++] = stmt();
 	}
+	code[i] = NULL;
 }
 
 //stmt = expr;
@@ -124,7 +134,19 @@ Node* primary() {
 	
 	if(token->kind == TK_IDENT) {
 		Node* node = new_node_number(NK_LVAL, 0);
-		node->offset = (token->str[0] - 'a') * 8;
+		LVal* lval = find_lval(token);
+		if(lval) {
+			node->offset = lval->offset;
+		}
+		else {
+			LVal* lval = calloc(1, sizeof(LVal));
+			lval->name = token->str;
+			lval->len = token->len;
+			lval->offset = locals->offset + 8;
+			lval->next = locals;
+			node->offset = lval->offset;
+			locals = lval;
+		}
 		token = token->next;
 		return node;
 	}
@@ -149,7 +171,6 @@ void gen(Node* node) {
 		return;
 	}
 	
-
 	switch(node->kind) {
 		case NK_NUM:
 			printf("	push %d\n", node->val);

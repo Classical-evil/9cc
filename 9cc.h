@@ -46,9 +46,18 @@ struct Token{
 	int len;
 };
 
+typedef struct LVal LVal;
+struct LVal {
+	char * name;
+	int len;
+	int offset;
+	LVal * next;
+};
+
 extern Token *token;
 extern char* user_input;
 extern Node* code[100];
+extern LVal* locals;
 
 void error_at(char *loc, char *fmt, ...);  
 bool consume(char *op);;  
@@ -70,4 +79,4 @@ Node* unary();
 Node* primary();  
 void gen_lval(Node* node);
 void gen(Node* node);  
-
+LVal* find_lval(Token* token);

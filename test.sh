@@ -85,6 +85,7 @@ assert 8  'ab=2*4;'
 assert 7  'li=3+4;'
 #assert -1  'y=1-2;'     //unsign logic
 assert 7  'val=8;asfjk=10;val=9;val=7;'
-
+assert 10 'foo=3;fo123=12;l09=10;'
+assert 11 'op90=11;'
 
 echo OK

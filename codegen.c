@@ -31,6 +31,7 @@ void program() {
 		code[i++] = stmt();
 	}
 	code[i] = NULL;
+//	printf("i=%d\n", i);
 }
 
 //stmt = expr;
@@ -155,6 +156,8 @@ Node* primary() {
 
 }
 
+int count=0;
+
 void gen_lval(Node* node) {
 	if(node->kind != NK_LVAL) {
 		error_at("expected a left val %s", "wrong");
@@ -166,11 +169,7 @@ void gen_lval(Node* node) {
 }
 
 void gen(Node* node) {
-	if(node->kind == NK_NUM) {
-		printf("	push %d\n", node->val);
-		return;
-	}
-	
+
 	switch(node->kind) {
 		case NK_NUM:
 			printf("	push %d\n", node->val);

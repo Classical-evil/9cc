@@ -5,12 +5,13 @@ char *user_input;
 Node* code[100];
 LVal* locals;
 
-void print_token() {
-	Token* n = token;
-	while(n->kind != TK_EOF) {
-		printf("val:%d str:%c\n", n->val, n->str[0]);
-		n = n->next;
-	}
+void print_token() {	
+	Token * tok = token;
+	while(tok->kind != TK_EOF) {
+		printf("%c -> ", tok->str[0]);
+		tok = tok->next;
+	} 
+	printf("\n");
 }
 
 void init() {
@@ -20,6 +21,7 @@ void init() {
 	locals->name = NULL;
 	locals->offset = 0;
 }
+
 
 int main(int argc, char **argv)
 {
@@ -39,7 +41,7 @@ int main(int argc, char **argv)
 	
 	printf("	push rbp\n");
 	printf("	mov rbp, rsp\n");
-//	printf("	sub rsp, 208\n");
+	printf("	sub rsp, 208\n");
 	for(int i = 0;code[i];i++) {
 		gen(code[i]);
 		printf("	pop rax\n");

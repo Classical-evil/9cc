@@ -31,12 +31,19 @@ void program() {
 		code[i++] = stmt();
 	}
 	code[i] = NULL;
-//	printf("i=%d\n", i);
 }
 
-//stmt = expr;
+//stmt = expr ";" || ("return" expr) ";"
 Node* stmt() {
-	Node* node = expr();
+	Node* node;
+	if (token->kind == TK_RETURN) {
+		token = token->next;
+		Node* lhs = expr();
+		node = new_node(NK_RETURN, lhs, lhs);
+	}
+	else {
+		node = expr();
+	}
 	expect(";");
 	return node;
 }
@@ -151,8 +158,8 @@ Node* primary() {
 		token = token->next;
 		return node;
 	}
-
-	return new_node_number(NK_NUM, expect_number());
+	int num = expect_number();
+	return new_node_number(NK_NUM,num);
 
 }
 
@@ -188,12 +195,17 @@ void gen(Node* node) {
 			printf("	mov [rax], rdi\n");
 			printf("	push rdi\n");
 			return;
+		case NK_RETURN:
+			gen(node->lhs);
+			printf("	pop rax\n");
+			printf("	mov rsp, rbp\n");
+			printf("	pop rbp\n");
+			printf("	ret\n");
+			return ; 
 	}
-
 
 	gen(node->lhs);
 	gen(node->rhs);
-
 	printf("	pop rdi\n");
 	printf("	pop rax\n");
 	switch(node->kind) {

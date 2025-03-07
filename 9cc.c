@@ -22,6 +22,15 @@ void init() {
 	locals->offset = 0;
 }
 
+int calc_locals() {
+	LVal* lval = locals;
+	int count = 0;
+	while(lval) {
+		count++;
+		lval = lval->next;
+	}
+	return count;
+}
 
 int main(int argc, char **argv)
 {
@@ -38,10 +47,9 @@ int main(int argc, char **argv)
 	printf(".intel_syntax noprefix\n");
 	printf(".globl main\n");
 	printf("main:\n");
-	
 	printf("	push rbp\n");
 	printf("	mov rbp, rsp\n");
-	printf("	sub rsp, 208\n");
+	printf("	sub rsp, %d\n", (calc_locals() - 1) * 8);
 	for(int i = 0;code[i];i++) {
 		gen(code[i]);
 		printf("	pop rax\n");

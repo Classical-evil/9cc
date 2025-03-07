@@ -51,6 +51,11 @@ Token* new_token(TokenKind kind, Token *cur, char* str, int len) {
 	return tok;
 }
 
+int is_letter(char c) {
+	return (c>='a' && c<='z') ||
+			(c>='0' && c<='9');
+}
+
 Token* tokenize(char* p) {
 	Token head;
 	head.next = NULL;
@@ -61,23 +66,24 @@ Token* tokenize(char* p) {
 			continue;
 		}
 		if (strchr("+-*/();", *p)) {
-			cur = new_token(TK_RESERVED , cur, p, 1);
+			cur = new_token(TK_RESERVED, cur, p, 1);
 			p++;
-	//		printf("+-/;*p:%c\n", *p);
+			continue;
+		}
+		if (strncmp(p, "return", 6) == 0 && !is_letter(p[6])) {
+			cur = new_token(TK_RETURN, cur, p, 6);
+			p += 6;
 			continue;
 		}
 		if (*p >= 'a' && *p <= 'z') {
 			int len = 0;
 			while((*p>='a' && *p<='z') || (*p>='0' && *p<='9')) {
-	//			printf("a-z*p;%c\n", p[len]);
 				len++;
 				p++;
 			}
 			cur = new_token(TK_IDENT, cur, p-len, len);
-	//		printf("a-z*p;%c\n", *p);
-	//		p += len;
 			continue;
-		}
+		} 
  		if (strchr("<>!=", *p)) {
 			if (p[1] == '=') {
 				cur = new_token(TK_RESERVED, cur, p, 2);
@@ -85,13 +91,11 @@ Token* tokenize(char* p) {
 				continue;
 			}
 			cur = new_token(TK_RESERVED, cur, p, 1);
-	//		printf("strchr*p:%c\n", *p);
 			p++;
 			continue;
 		}
 		if (isdigit(*p)) {
 			cur = new_token(TK_NUM, cur, p, 1);
-	//		printf("isdigit*p:%c\n", *p);
 			cur->val = strtol(p, &p, 10);
 			continue;
 		}
